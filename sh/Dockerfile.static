@@ -1,0 +1,51 @@
+ARG USER=static
+ARG UID=10000
+ARG TZ=Europe/Kiev
+
+FROM alpine AS builder
+ARG USER
+ARG UID
+
+ENV VER=1.35.0
+
+RUN apk add gcc musl-dev make perl tzdata
+
+RUN wget https://busybox.net/downloads/busybox-${VER}.tar.bz2 \
+  && tar xf busybox-${VER}.tar.bz2 \
+  && mv /busybox-${VER} /busybox
+
+WORKDIR /busybox
+
+COPY .config .
+
+RUN make && make install
+#RUN cd /busybox/_install/bin/ && ./busybox --install -s
+
+RUN adduser -D $USER && \
+mkdir -p /home/static && \
+chown $USER /home/static
+
+FROM scratch
+ARG USER
+ARG UID
+ARG TZ
+
+COPY --from=builder /etc/passwd /etc/passwd
+COPY --from=builder /busybox/_install/bin/busybox /bin/
+# fix TZ
+COPY --from=builder /usr/share/zoneinfo/$TZ /usr/share/zoneinfo/$TZ
+COPY --from=builder /usr/share/zoneinfo/$TZ /etc/localtime
+COPY --from=builder /home /home/
+
+SHELL ["/bin/busybox" , "sh", "-c"]
+RUN /bin/busybox --install -s /bin && \
+mkdir -p -m 1777 /tmp /run /config /default
+
+RUN echo $TZ > /etc/timezone
+
+
+USER $USER
+
+CMD [ "/bin/sh" ]
+
+#CMD ["/busybox", "httpd", "-f", "-v", "-p", "3000", "-c", "httpd.conf"]
