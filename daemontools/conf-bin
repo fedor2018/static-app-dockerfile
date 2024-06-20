@@ -1,0 +1,3 @@
+/rootfs/sbin
+
+Programs will be installed in this directory.

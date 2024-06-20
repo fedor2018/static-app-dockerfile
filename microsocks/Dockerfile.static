@@ -1,0 +1,18 @@
+FROM alpine:latest as builder
+ARG MICROSOCKS_TAG=v1.0.3
+ENV MICROSOCKS_URL="https://github.com/rofl0r/microsocks/archive/refs/tags/$MICROSOCKS_TAG.zip"
+WORKDIR /build
+ADD $MICROSOCKS_URL .
+RUN apk add --update --no-cache \
+      build-base unzip && \
+      unzip $MICROSOCKS_TAG.zip && \
+      cd microsocks-${MICROSOCKS_TAG:1} && \
+      make CFLAGS="-static" EXEEXT="-static" LDFLAGS="-static -I/usr/local/include/" && \
+      cp ./microsocks ..
+
+FROM sh-static
+WORKDIR /
+COPY --from=builder /build/microsocks .
+COPY entrypoint.sh /
+
+ENTRYPOINT [ "/entrypoint.sh" ]

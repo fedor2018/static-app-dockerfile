@@ -1,0 +1,26 @@
+ARG VER=1.10
+
+FROM alpine as builder
+ARG VER
+
+RUN apk add --no-cache \
+    bash gcc make alpine-sdk coreutils
+
+WORKDIR /tmp
+RUN wget https://untroubled.org/daemontools-encore/daemontools-encore-${VER}.tar.gz && \
+    tar xzf daemontools-encore-${VER}.tar.gz
+
+WORKDIR /tmp/daemontools-encore-${VER}
+COPY conf-* .
+COPY _BIN .
+RUN mkdir -p -m 1777 /rootfs/service && \
+    mkdir -p /rootfs/sbin
+
+RUN make && ./installer /rootfs/sbin <BIN
+RUN ls /rootfs/sbin/|grep -v svscanboot|xargs strip
+
+FROM sh-static
+
+COPY --from=builder /rootfs  /
+
+CMD [ "/sbin/svscan", "/service" ]

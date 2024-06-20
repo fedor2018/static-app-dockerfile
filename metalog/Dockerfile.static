@@ -1,0 +1,29 @@
+FROM alpine as build
+
+RUN apk -U --no-cache \
+    add socat bash tzdata git build-base pcre2-dev automake autoconf autoconf-archive wget
+
+WORKDIR /tmp
+RUN git clone --depth 1 https://github.com/hvisage/metalog.git
+
+WORKDIR /tmp/metalog
+RUN ./autogen.sh && \
+    ./configure --with-unicode --without-dmalloc && \
+    make CFLAGS="-static" EXEEXT="-static" LDFLAGS="-static -I/usr/local/include/" && ls -lR
+
+RUN wget https://github.com/andrew-d/static-binaries/raw/master/binaries/linux/x86_64/socat && \
+    ls -l /tmp/metalog && chmod 0755 /tmp/metalog/socat
+
+FROM daemontools-static:latest
+COPY --from=build /tmp/metalog/src/metalog-static /metalog
+COPY --from=build /tmp/metalog/socat /socat
+
+COPY metalog.conf /etc/
+COPY start.sh /
+COPY metalog.sh /service/metalog/run
+COPY socat.sh /service/socat/run
+
+EXPOSE 514/udp
+USER root
+
+CMD ["/start.sh"]

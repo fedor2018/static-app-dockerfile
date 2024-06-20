@@ -1,0 +1,99 @@
+ARG UID=82
+ARG USER=www-data
+
+FROM alpine as builder
+
+ARG USER
+ARG UID
+
+ENV NGINX_VERSION=1.25.0
+ENV BUILD_DIR=/tmp
+ENV STATIC="--with-ld-opt='-static'"
+ENV CONF=/config
+ENV CACHE=/tmp
+ENV RUN=/tmp
+ENV BIN=/rootfs/bin
+ENV LOG=/tmp
+
+RUN apk add build-base linux-headers openssl-dev pcre-dev wget zlib-dev \
+    ca-certificates openssl pcre zlib tzdata git openssl-libs-static zlib-static
+
+RUN mkdir -p $BUILD_DIR && cd $BUILD_DIR && \
+  wget https://nginx.org/download/nginx-${NGINX_VERSION}.tar.gz && \
+  tar xzf nginx-${NGINX_VERSION}.tar.gz 
+
+RUN  cd $BUILD_DIR/nginx-${NGINX_VERSION} && \
+  ./configure $STATIC \
+    --prefix=$CONF \
+    --sbin-path=$BIN/nginx \
+    --conf-path=$CONF/nginx.conf \
+    --error-log-path=$LOG/error.log \
+    --http-log-path=$LOG/nginx/access.log \
+    --pid-path=$RUN/nginx.pid \
+    --lock-path=$RUN/nginx.lock \
+    --http-client-body-temp-path=$CACHE/client_temp \
+    --http-proxy-temp-path=$CACHE/proxy_temp \
+    --http-fastcgi-temp-path=$CACHE/fastcgi_temp \
+    --http-uwsgi-temp-path=$CACHE/uwsgi_temp \
+    --http-scgi-temp-path=$CACHE/scgi_temp \
+    --user=$USER \
+    --group=$USER \
+    --with-http_ssl_module \
+    --with-http_realip_module \
+    --with-http_addition_module \
+    --with-http_sub_module \
+    --with-http_dav_module \
+    --with-http_flv_module \
+    --with-http_mp4_module \
+    --with-http_gunzip_module \
+    --with-http_gzip_static_module \
+    --with-http_random_index_module \
+    --with-http_secure_link_module \
+    --with-http_stub_status_module \
+    --with-http_auth_request_module \
+    --with-mail \
+    --with-mail_ssl_module \
+    --with-file-aio \
+    --with-threads \
+    --with-stream \
+    --with-stream_ssl_module \
+    --with-stream_realip_module \
+    --with-http_slice_module \
+    --with-http_v2_module
+
+RUN  cd $BUILD_DIR/nginx-${NGINX_VERSION} && \
+    make && make install && \
+    strip $BIN/*
+
+RUN mkdir -p /rootfs/etc \
+    && echo "$USER:*:$UID:$USER" > /rootfs/etc/group \
+    && echo "$USER:*:$UID:$UID:::" > /rootfs/etc/passwd \
+    && mkdir -p /rootfs/html/nextcloud \
+    && mkdir -p /rootfs/$CONF \
+    && mkdir -p /rootfs/default \
+    && mkdir -p -m 1777 /rootfs/tmp
+
+RUN cd $BUILD_DIR/nginx-${NGINX_VERSION} \
+    && cp -r html/* /rootfs/html \
+    && cp -r conf/* /rootfs/default \
+    && cd /rootfs/default \
+    && sed -i -e 's/#access_log  logs\/access.log  main;/access_log \/dev\/stdout;/' -e 's/#error_log  logs\/error.log  notice;/error_log stderr notice;/' nginx.conf \
+    && sed -i -e 's!/var/www!/!' nginx.conf #
+
+#    && cp /bin/busybox.static /rootfs/bin/busybox \
+
+FROM sh-static
+
+ARG USER
+ARG UID
+
+COPY --from=builder --chown=$UID:$UID /rootfs /
+COPY entrypoint.sh /
+
+EXPOSE 80 443
+
+USER $USER
+
+ENTRYPOINT [ "/entrypoint.sh" ]
+#CMD [ "-V" ]
+#CMD ["/bin/nginx", "-g", "daemon off;" ]

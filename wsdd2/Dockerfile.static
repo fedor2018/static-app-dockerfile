@@ -1,0 +1,20 @@
+
+FROM alpine as builder
+
+RUN apk add --no-cache \
+    bash gcc make alpine-sdk coreutils linux-headers
+
+WORKDIR /tmp
+RUN git clone https://github.com/Andy2244/wsdd2.git
+
+WORKDIR /tmp/wsdd2
+RUN make wsdd2 && rm wsdd2 \
+    && cc -g -Wl,-z,relro -static wsdd2.o wsd.o llmnr.o -o wsdd2 \
+    && strip wsdd2
+#RUN chmod 0555 wsdd2
+
+FROM sh-static
+
+COPY --from=builder /tmp/wsdd2/wsdd2  /wsdd2
+
+ENTRYPOINT /wsdd2 -N ${HOSTNAME:-HOST} -G ${WORKGROUP:-WORKGROUP}

@@ -1,0 +1,42 @@
+FROM alpine AS build
+
+ENV VERSION "1.4.63"
+
+
+RUN apk -U add --no-cache \
+    bsd-compat-headers build-base pcre2-dev zstd-dev zstd-static scons openssl-dev \
+    openssl-libs-static zlib-static curl
+
+RUN curl  https://download.lighttpd.net/lighttpd/releases-1.4.x/lighttpd-$VERSION.tar.gz -o /tmp/lighttpd.tar.gz \
+    && tar -C /tmp -xf /tmp/lighttpd.tar.gz
+
+WORKDIR /tmp/lighttpd-$VERSION
+
+COPY *.patch ./
+
+RUN patch -p1 < lighttpd-mod_h264_streaming.patch \
+    && rm -f src/mod_ssi_exprparser.h \
+    && scons -j 4 with_pcre2=yes with_zlib=no with_zstd=yes with_openssl=yes \
+    with_h264_streaming=yes \
+    build_fullstatic=1 build_dynamic=0
+
+RUN mkdir -p /rootfs/bin \
+    &&  cp /tmp/lighttpd-$VERSION/sconsbuild/fullstatic/build/lighttpd /rootfs/bin/ \
+    && strip  /rootfs/bin/* \
+    && mkdir -p /rootfs/etc \
+    && mkdir -p -m 0777 /rootfs/config /rootfs/etc/lighttpd \
+    && cp -r ./doc/config/* /rootfs/etc/lighttpd \
+    && echo "www-data:*:82:www-data" >> /etc/group \
+    && echo "www-data:*:82:82:::" >> /etc/passwd
+#    && ln -sf /dev/stdout /tmp/access.log \
+#    && ln -sf /dev/stderr /tmp/error.log
+
+FROM sh-static
+
+COPY --from=build --chown=82:82 /rootfs /
+COPY --from=build --chown=82:82 /tmp/*.log /tmp/
+COPY default /default/
+COPY entrypoint.sh /
+
+USER 82:82
+ENTRYPOINT ["/entrypoint.sh"]

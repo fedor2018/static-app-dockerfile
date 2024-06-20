@@ -1,0 +1,40 @@
+FROM alpine AS builder
+ARG openssh_url=https://github.com/openssh/openssh-portable.git
+RUN apk add --no-cache \
+    autoconf \
+    automake \
+    curl \
+    gcc \
+    make \
+    musl-dev \
+    linux-headers \
+    openssl-dev \
+    openssl-libs-static \
+    patch \
+    zlib-dev \
+    zlib-static \
+    git
+
+RUN  cd /tmp && \
+  git clone --depth=1 $openssh_url . && \
+  autoreconf && \
+  ./configure \
+    --prefix=/usr \
+    --sysconfdir=/etc/ssh \
+    --with-ldflags=-static \
+    --with-privsep-user=nobody \
+    --with-ssl-engine
+
+RUN cd /tmp &&  make install-nosysconf exec_prefix=/openssh
+
+FROM builder AS tester
+RUN \
+  TEST_SSH_UNSAFE_PERMISSIONS=1 \
+    make -C /tmp file-tests interop-tests unit SK_DUMMY_LIBRARY=''
+
+FROM sh-static
+
+COPY --from=builder /openssh /usr
+VOLUME [ "/var/run", "/var/empty" ]
+ENTRYPOINT [ "/usr/sbin/sshd" ]
+CMD [ "-D", "-e" ]

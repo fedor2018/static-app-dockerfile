@@ -1,0 +1,16 @@
+FROM alpine as builder
+
+RUN apk add --no-cache \
+    bash gcc make git openssh musl-dev
+
+WORKDIR /tmp
+RUN git clone https://github.com/Autossh/autossh.git .
+
+RUN ./configure
+RUN make CPPFLAGS+="-DHAVE___PROGNAME -static"
+
+FROM sh-static
+
+COPY --from=builder /tmp/autossh  /autossh
+
+entrypoint [ "/autossh" ]

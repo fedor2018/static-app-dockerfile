@@ -1,0 +1,38 @@
+ARG USER=redis
+ARG UID=1000
+
+FROM alpine AS builder
+
+ENV VER=7.0.9
+ARG USER
+ARG UID
+
+RUN apk -U --no-cache add \
+    build-base wget
+
+RUN wget https://download.redis.io/releases/redis-${VER}.tar.gz && \
+    tar xvzf redis-${VER}.tar.gz && \
+    mv redis-${VER} redis && \
+    cd redis && \
+    make CFLAGS="-static" EXEEXT="-static" LDFLAGS="-static -I/usr/local/include/" && \
+    strip /redis/src/redis-server
+
+RUN mkdir -p /rootfs/etc \
+    && mkdir -p /rootfs/bin \
+    && cp /redis/redis.conf /rootfs/etc/redis.conf \
+    && cp /redis/src/redis-server /rootfs/bin/redis-server \
+    && echo "$USER:*:$UID:$USER" > /rootfs/etc/group \
+    && echo "$USER:*:$UID:$UID:::" > /rootfs/etc/passwd
+
+FROM sh-static
+
+ARG USER
+ARG UID
+
+COPY --from=builder /rootfs/  /
+COPY entrypoint.sh /
+
+EXPOSE 6379
+USER $USER
+
+ENTRYPOINT ["/entrypoint.sh"]

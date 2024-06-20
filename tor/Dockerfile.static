@@ -1,0 +1,64 @@
+ARG TOR_VERSION=0.4.8.9
+#0.4.7.9
+ARG UID=479
+ARG USER=tor
+
+FROM alpine as builder
+
+RUN apk add build-base linux-headers openssl-dev pcre-dev wget \
+    curl openssl-libs-static zlib-dev zlib-static \
+    libevent-dev libevent-static zstd-dev zstd-static
+
+WORKDIR /tmp
+# Static toribuild
+
+ARG TOR_VERSION
+ARG UID
+ARG USER
+
+RUN curl -fsSL "https://www.torproject.com/dist/tor-${TOR_VERSION}.tar.gz" | tar xzf -
+
+WORKDIR /tmp/tor-${TOR_VERSION}
+
+RUN CXXFLAGS="-c"  ./configure \
+    --prefix=/tmp/rootfs \
+    --localstatedir=/tmp \
+    --datadir=/default \
+    --sysconfdir=/config \
+    --enable-static-tor \
+    --enable-static-libevent \
+    --with-libevent-dir=/usr/lib \
+    --enable-static-openssl \
+    --with-openssl-dir=/usr/lib \
+    --enable-static-zlib \
+    --with-zlib-dir=/lib \
+    --disable-gcc-hardening \
+    --disable-asciidoc \
+    --disable-systemd \
+    --disable-lzma \
+    --disable-seccomp
+
+RUN make -j$(nproc)
+RUN make install
+RUN cat src/config/torrc.sample.in > /default/tor/torrc
+RUN strip /tmp/rootfs/bin/tor
+RUN mkdir -p -m 0777 /config
+RUN mkdir -p /rootfs/etc \
+    && echo "$USER:*:$UID:$USER" > /tmp/group \
+    && echo "$USER:*:$UID:$UID::/tmp:" > /tmp/passwd
+
+
+FROM sh-static
+ARG USER
+
+COPY --from=builder /tmp/group /etc/group
+COPY --from=builder /tmp/passwd /etc/passwd
+COPY --from=builder /tmp/rootfs/bin/tor /tor
+COPY --from=builder /default/tor/* /default/
+COPY entrypoint.sh /entrypoint.sh
+
+USER $USER
+
+ENTRYPOINT [ "/entrypoint.sh" ]
+
+#CMD ['tor','--hush', '-f', '/config/torrc']

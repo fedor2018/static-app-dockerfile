@@ -1,0 +1,25 @@
+FROM alpine:latest as builder
+WORKDIR /build
+
+RUN apk add --update --no-cache \
+      git build-base unzip && \
+      git clone --depth=1 https://github.com/tinyproxy/tinyproxy.git
+
+RUN apk add automake autoconf
+
+RUN   cd tinyproxy && \
+      ./autogen.sh && \
+      CFLAGS="-static" EXEEXT="-static" LDFLAGS="-static" \
+./configure --prefix=/config --sysconfdir=/default --datarootdir=/default --runstatedir=/tmp --disable-debug && \
+      make  && \
+      make install
+
+FROM sh-static
+WORKDIR /
+
+COPY --from=builder /build/tinyproxy/src/tinyproxy /tinyproxy
+COPY --from=builder /default/tinyproxy/*.html /default/html/
+COPY tinyproxy.conf /default/
+COPY entrypoint.sh /
+
+ENTRYPOINT [ "/entrypoint.sh" ]
