@@ -1,2 +1,3 @@
 # static-app-dockerfile
-dockerfile collection for generating images using a statically linked application
+
+Колекція dockerfile для образів з статично скомпільованих програм
