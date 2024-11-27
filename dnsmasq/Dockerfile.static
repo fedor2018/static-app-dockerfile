@@ -1,0 +1,18 @@
+FROM alpine AS builder
+
+RUN apk add --no-cache \
+    bash git build-base coreutils dbus-dev linux-headers nettle-dev nftables-dev
+#alpine-sdk git openssl-dev libpcap-dev libnl3-dev musl-dev
+
+WORKDIR /tmp
+RUN git clone --depth 1 git://thekelleys.org.uk/dnsmasq.git  .
+
+RUN make LDFLAGS+="-static" CFLAGS+="-static" && strip src/dnsmasq
+#RUN pwd && nm src/dnsmasq
+
+FROM sh-static
+
+COPY --from=builder /tmp/src/dnsmasq  /dnsmasq
+COPY --from=builder /tmp/dnsmasq.conf.example  /etc/dnsmasq.conf
+
+ENTRYPOINT [ "/dnsmasq", "-d" ]
