@@ -1,7 +1,7 @@
 ARG UID=82
 ARG USER=www-data
 
-FROM alpine as builder
+FROM alpine:3.18 AS builder
 
 ARG USER
 ARG UID

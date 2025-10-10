@@ -3,11 +3,14 @@ ARG TOR_VERSION=0.4.8.9
 ARG UID=479
 ARG USER=tor
 
-FROM alpine as builder
+FROM alpine:3.18 AS builder
 
-RUN apk add build-base linux-headers openssl-dev pcre-dev wget \
-    curl openssl-libs-static zlib-dev zlib-static \
-    libevent-dev libevent-static zstd-dev zstd-static
+RUN apk add alpine-sdk coreutils linux-headers \
+    openssl-dev pcre-dev automake autoconf \
+    openssl-libs-static zlib-dev zlib-static \
+    libevent-dev libevent-static zstd-dev zstd-static git
+
+#build-base linux-headers openssl-dev pcre-dev wget \
 
 WORKDIR /tmp
 # Static toribuild
@@ -16,11 +19,12 @@ ARG TOR_VERSION
 ARG UID
 ARG USER
 
-RUN curl -fsSL "https://www.torproject.com/dist/tor-${TOR_VERSION}.tar.gz" | tar xzf -
+RUN git clone --depth 1 https://gitlab.torproject.org/tpo/core/tor.git .
+#RUN curl -fsSL "https://www.torproject.com/dist/tor-${TOR_VERSION}.tar.gz" | tar xzf -
 
-WORKDIR /tmp/tor-${TOR_VERSION}
+#WORKDIR /tmp/tor-${TOR_VERSION}
 
-RUN CXXFLAGS="-c"  ./configure \
+RUN ./autogen.sh && CXXFLAGS="-c"  ./configure \
     --prefix=/tmp/rootfs \
     --localstatedir=/tmp \
     --datadir=/default \

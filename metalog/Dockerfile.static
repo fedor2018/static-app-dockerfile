@@ -1,4 +1,4 @@
-FROM alpine as build
+FROM alpine:3.18 AS build
 
 RUN apk -U --no-cache \
     add socat bash tzdata git build-base pcre2-dev automake autoconf autoconf-archive wget

@@ -1,5 +1,5 @@
 
-FROM alpine as builder
+FROM alpine:3.18 AS builder
 
 RUN apk add --no-cache \
     bash gcc make alpine-sdk coreutils linux-headers

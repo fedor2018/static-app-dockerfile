@@ -1,21 +1,23 @@
-ARG VER=1.10
+#ARG VER=1.10
 
-FROM alpine as builder
-ARG VER
+FROM alpine AS builder
+#ARG VER
 
 RUN apk add --no-cache \
-    bash gcc make alpine-sdk coreutils
+    bash gcc make alpine-sdk coreutils git
 
 WORKDIR /tmp
-RUN wget https://untroubled.org/daemontools-encore/daemontools-encore-${VER}.tar.gz && \
-    tar xzf daemontools-encore-${VER}.tar.gz
-
-WORKDIR /tmp/daemontools-encore-${VER}
+#https://github.com/fedor2018/daemontools-encore.git
+#RUN wget https://untroubled.org/daemontools-encore/daemontools-encore-${VER}.tar.gz && \
+#    tar xzf daemontools-encore-${VER}.tar.gz
+#WORKDIR /tmp/daemontools-encore-${VER}
+RUN git clone --depth=1 https://github.com/fedor2018/daemontools-encore.git .
 COPY conf-* .
 COPY _BIN .
 RUN mkdir -p -m 1777 /rootfs/service && \
     mkdir -p /rootfs/sbin
 
+RUN ./makemake
 RUN make && ./installer /rootfs/sbin <BIN
 RUN ls /rootfs/sbin/|grep -v svscanboot|xargs strip
 

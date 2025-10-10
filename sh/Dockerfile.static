@@ -6,13 +6,17 @@ FROM alpine AS builder
 ARG USER
 ARG UID
 
-ENV VER=1.35.0
+ENV VER=1_35_0
 
 RUN apk add gcc musl-dev make perl tzdata
 
-RUN wget https://busybox.net/downloads/busybox-${VER}.tar.bz2 \
-  && tar xf busybox-${VER}.tar.bz2 \
+RUN wget https://github.com/mirror/busybox/archive/refs/tags/${VER}.tar.gz \
+  && tar xf ${VER}.tar.gz \
   && mv /busybox-${VER} /busybox
+
+#https://busybox.net/downloads/busybox-${VER}.tar.bz2 \
+#  && tar xf busybox-${VER}.tar.bz2 \
+#  && mv /busybox-${VER} /busybox
 
 WORKDIR /busybox
 

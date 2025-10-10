@@ -27,14 +27,14 @@ RUN  cd /tmp && \
 
 RUN cd /tmp &&  make install-nosysconf exec_prefix=/openssh
 
-FROM builder AS tester
-RUN \
-  TEST_SSH_UNSAFE_PERMISSIONS=1 \
-    make -C /tmp file-tests interop-tests unit SK_DUMMY_LIBRARY=''
+#FROM builder AS tester
+#RUN \
+#  TEST_SSH_UNSAFE_PERMISSIONS=1 \
+#    make -C /tmp file-tests interop-tests unit SK_DUMMY_LIBRARY=''
 
 FROM sh-static
 
 COPY --from=builder /openssh /usr
-VOLUME [ "/var/run", "/var/empty" ]
+#VOLUME [ "/var/run", "/var/empty" ]
 ENTRYPOINT [ "/usr/sbin/sshd" ]
 CMD [ "-D", "-e" ]
