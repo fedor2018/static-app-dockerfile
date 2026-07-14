@@ -1,0 +1,20 @@
+FROM alpine:3.24 AS builder
+
+RUN apk add --no-cache \
+    bash gcc make alpine-sdk coreutils git zlib-static cjson-static kcgi-static sqlite-static
+#    bash gcc make alpine-sdk coreutils git cjson-dev cjson-static kcgi-static kcgi kcgi-dev sqlite-dev sqlite-static zlib-static
+
+WORKDIR /tmp
+
+RUN git clone --depth=1 https://github.com/aremmiw/ksync.git .
+COPY Makefile_ Makefile
+COPY config.h config.h
+RUN make && strip ksync
+#RUN ls -l; ./ksync -h
+
+FROM scratch
+COPY --from=builder /tmp/ksync /
+COPY --from=builder /tmp/README.md /
+
+
+#CMD [ "/sbin/svscan", "/service" ]
